@@ -1,1 +1,563 @@
-xxx
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Přihlašování na kurzy</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+    }
+
+    header {
+      background: white;
+      padding: 30px;
+      border-radius: 15px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+      margin-bottom: 30px;
+      text-align: center;
+    }
+
+    header h1 {
+      color: #667eea;
+      font-size: 2em;
+      margin-bottom: 10px;
+    }
+
+    #welcomeMessage {
+      color: #666;
+      font-size: 1.1em;
+    }
+
+    .card {
+      background: white;
+      padding: 30px;
+      border-radius: 15px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+      margin-bottom: 20px;
+    }
+
+    .card h2 {
+      color: #333;
+      margin-bottom: 15px;
+    }
+
+    .card h3 {
+      color: #667eea;
+      margin-bottom: 15px;
+    }
+
+    .step {
+      display: none;
+    }
+
+    .step.active {
+      display: block;
+      animation: fadeIn 0.5s;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    .form-group label {
+      display: block;
+      margin-bottom: 8px;
+      color: #333;
+      font-weight: 600;
+    }
+
+    .form-group input, .form-group select {
+      width: 100%;
+      padding: 12px 15px;
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      font-size: 1em;
+    }
+
+    .form-group input:focus, .form-group select:focus {
+      outline: none;
+      border-color: #667eea;
+      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+
+    .btn {
+      padding: 12px 30px;
+      border: none;
+      border-radius: 8px;
+      font-size: 1em;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+      margin-right: 10px;
+      margin-bottom: 10px;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+    }
+
+    .btn-secondary {
+      background: #f5f5f5;
+      color: #333;
+    }
+
+    .btn-small {
+      padding: 8px 15px;
+      font-size: 0.9em;
+    }
+
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .message {
+      margin-top: 15px;
+      padding: 12px 15px;
+      border-radius: 8px;
+      display: none;
+    }
+
+    .message.success {
+      background: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+      display: block;
+    }
+
+    .message.error {
+      background: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+      display: block;
+    }
+
+    .message.info {
+      background: #d1ecf1;
+      color: #0c5460;
+      border: 1px solid #bee5eb;
+      display: block;
+    }
+
+    .course-item {
+      border: 2px solid #e0e0e0;
+      border-radius: 10px;
+      padding: 20px;
+      margin-bottom: 15px;
+      transition: all 0.3s;
+    }
+
+    .course-item:hover {
+      border-color: #667eea;
+      box-shadow: 0 5px 15px rgba(102, 126, 234, 0.2);
+    }
+
+    .course-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 15px;
+    }
+
+    .course-title {
+      color: #667eea;
+      font-size: 1.3em;
+      font-weight: 600;
+      margin-bottom: 5px;
+    }
+
+    .course-info {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 10px;
+      margin: 15px 0;
+      padding: 15px;
+      background: #f9f9f9;
+      border-radius: 8px;
+    }
+
+    .course-info-item {
+      display: flex;
+      align-items: center;
+      color: #666;
+    }
+
+    .course-info-item strong {
+      color: #333;
+      margin-left: 5px;
+    }
+
+    .capacity-info {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 10px 0;
+    }
+
+    .capacity-badge {
+      padding: 5px 12px;
+      border-radius: 20px;
+      font-size: 0.9em;
+      font-weight: 600;
+    }
+
+    .capacity-available {
+      background: #d4edda;
+      color: #155724;
+    }
+
+    .capacity-limited {
+      background: #fff3cd;
+      color: #856404;
+    }
+
+    .registration-item {
+      border-left: 4px solid #667eea;
+      background: #f9f9f9;
+      padding: 15px;
+      margin-bottom: 10px;
+      border-radius: 5px;
+    }
+
+    .registration-status {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 12px;
+      font-size: 0.85em;
+      font-weight: 600;
+      margin-left: 10px;
+    }
+
+    .status-pending {
+      background: #fff3cd;
+      color: #856404;
+    }
+
+    .status-attended {
+      background: #d4edda;
+      color: #155724;
+    }
+
+    .loading {
+      text-align: center;
+      padding: 20px;
+      color: #667eea;
+      font-size: 1.1em;
+    }
+
+    .header-with-logout {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 15px;
+    }
+
+    @media (max-width: 768px) {
+      body { padding: 10px; }
+      .container { padding: 0; }
+      header h1 { font-size: 1.5em; }
+      .course-header { flex-direction: column; }
+      .course-info { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    
+    <!-- Hlavička -->
+    <header>
+      <h1>📚 Systém přihlašování na kurzy</h1>
+      <p id="welcomeMessage"></p>
+    </header>
+
+    <!-- KROK 1: Přihlašovací formulář -->
+    <div id="loginStep" class="step active">
+      <div class="card">
+        <h2>Přihlášení</h2>
+        <p>Pro přístup k přihlašování na kurzy zadejte své ID a email.</p>
+        
+        <form id="loginForm">
+          <div class="form-group">
+            <label for="participantId">ID účastníka:</label>
+            <input type="text" id="participantId" required placeholder="např. UA9999">
+          </div>
+          
+          <div class="form-group">
+            <label for="email">Email:</label>
+            <input type="email" id="email" required placeholder="vas@email.cz">
+          </div>
+          
+          <button type="submit" class="btn btn-primary">Odeslat ověřovací kód</button>
+        </form>
+        
+        <div id="loginMessage" class="message"></div>
+      </div>
+    </div>
+
+    <!-- KROK 2: Zadání ověřovacího kódu -->
+    <div id="verificationStep" class="step">
+      <div class="card">
+        <h2>Ověření</h2>
+        <p>Na váš email byl odeslán 6-místný ověřovací kód. Kód je platný 10 minut.</p>
+        
+        <form id="verificationForm">
+          <div class="form-group">
+            <label for="verificationCode">Ověřovací kód:</label>
+            <input type="text" id="verificationCode" required placeholder="123456" maxlength="6" pattern="[0-9]{6}">
+          </div>
+          
+          <button type="submit" class="btn btn-primary">Ověřit kód</button>
+          <button type="button" class="btn btn-secondary" onclick="goBackToLogin()">Zpět</button>
+        </form>
+        
+        <div id="verificationMessage" class="message"></div>
+      </div>
+    </div>
+
+    <!-- KROK 3: Seznam kurzů -->
+    <div id="coursesStep" class="step">
+      <div class="card">
+        <div class="header-with-logout">
+          <h2>Dostupné kurzy</h2>
+          <button class="btn btn-secondary btn-small" onclick="logout()">Odhlásit se</button>
+        </div>
+        
+        <p>Vyberte kurz, na který se chcete přihlásit:</p>
+        
+        <div id="coursesList" class="courses-list">
+          <div class="loading">Načítám kurzy...</div>
+        </div>
+        
+        <div id="coursesMessage" class="message"></div>
+      </div>
+      
+      <!-- Moje přihlášky -->
+      <div class="card">
+        <h3>Moje přihlášky</h3>
+        <div id="myRegistrations">
+          <p>Zatím nemáte žádné přihlášky.</p>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    // ⚙️ KONFIGURACE - ZMĚŇTE NA VAŠI APPS SCRIPT URL
+    const API_URL = 'https://script.google.com/macros/s/AKfycbzqcrHf-BnWBBwlitO041mMosOTHj5oF_0wJCy2xfzSzDRrOYlHJJOJL-h27nVKTotxNQ/exec';
+
+    let currentParticipant = null;
+    let currentEmail = null;
+
+    // API volání
+    async function callAPI(action, data) {
+      try {
+        const response = await fetch(API_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: action, ...data })
+        });
+        
+        if (!response.ok) throw new Error('Network error');
+        return await response.json();
+      } catch (error) {
+        console.error('API Error:', error);
+        return { success: false, message: 'Chyba připojení: ' + error.message };
+      }
+    }
+
+    // KROK 1: Přihlášení
+    document.getElementById('loginForm').addEventListener('submit', async function(e) {
+      e.preventDefault();
+      
+      const participantId = document.getElementById('participantId').value.trim();
+      const email = document.getElementById('email').value.trim();
+      const btn = e.target.querySelector('button');
+      
+      btn.disabled = true;
+      btn.textContent = 'Odesílám...';
+      
+      const result = await callAPI('verifyParticipant', { participantId, email });
+      
+      btn.disabled = false;
+      btn.textContent = 'Odeslat ověřovací kód';
+      
+      showMessage('loginMessage', result.message, result.success ? 'success' : 'error');
+      
+      if (result.success) {
+        currentEmail = email;
+        currentParticipant = { id: participantId };
+        setTimeout(() => showStep('verificationStep'), 1000);
+      }
+    });
+
+    // KROK 2: Ověření kódu
+    document.getElementById('verificationForm').addEventListener('submit', async function(e) {
+      e.preventDefault();
+      
+      const code = document.getElementById('verificationCode').value.trim();
+      const btn = e.target.querySelector('button[type="submit"]');
+      
+      btn.disabled = true;
+      btn.textContent = 'Ověřuji...';
+      
+      const result = await callAPI('verifyCode', { email: currentEmail, code });
+      
+      btn.disabled = false;
+      btn.textContent = 'Ověřit kód';
+      
+      showMessage('verificationMessage', result.message, result.success ? 'success' : 'error');
+      
+      if (result.success) {
+        currentParticipant = result.participant;
+        document.getElementById('welcomeMessage').textContent = 
+          'Vítejte, ' + result.participant.jmeno + ' ' + result.participant.prijmeni + '!';
+        setTimeout(() => {
+          showStep('coursesStep');
+          loadCourses();
+          loadMyRegistrations();
+        }, 1000);
+      }
+    });
+
+    // Načtení kurzů
+    async function loadCourses() {
+      const list = document.getElementById('coursesList');
+      list.innerHTML = '<div class="loading">Načítám kurzy...</div>';
+      
+      const result = await callAPI('getCourses', {});
+      
+      if (result.success && result.courses.length > 0) {
+        list.innerHTML = result.courses.map(course => `
+          <div class="course-item">
+            <div class="course-header">
+              <div>
+                <div class="course-title">${course.nazev}</div>
+                <p style="color: #666; margin: 5px 0;">${course.popis || ''}</p>
+              </div>
+            </div>
+            
+            <div class="course-info">
+              <div class="course-info-item">📅 <strong>${course.datum}</strong></div>
+              <div class="course-info-item">🕐 <strong>${course.hodiny}</strong></div>
+              <div class="course-info-item">📍 <strong>${course.misto}</strong></div>
+            </div>
+            
+            <div class="capacity-info">
+              <span class="capacity-badge ${course.volnaMista > 5 ? 'capacity-available' : 'capacity-limited'}">
+                ${course.volnaMista} volných míst z ${course.kapacita}
+              </span>
+            </div>
+            
+            <button class="btn btn-primary" onclick="registerForCourse('${course.id}')">
+              Přihlásit se
+            </button>
+          </div>
+        `).join('');
+      } else {
+        list.innerHTML = '<p style="text-align:center;color:#666;">Momentálně nejsou dostupné žádné kurzy.</p>';
+      }
+    }
+
+    // Přihlášení na kurz
+    async function registerForCourse(courseId) {
+      if (!confirm('Opravdu se chcete přihlásit na tento kurz?')) return;
+      
+      const result = await callAPI('registerForCourse', {
+        participantId: currentParticipant.id,
+        courseId: courseId
+      });
+      
+      showMessage('coursesMessage', result.message, result.success ? 'success' : 'error');
+      
+      if (result.success) {
+        setTimeout(() => {
+          loadCourses();
+          loadMyRegistrations();
+        }, 1500);
+      }
+    }
+
+    // Načtení mých přihlášek
+    async function loadMyRegistrations() {
+      const container = document.getElementById('myRegistrations');
+      container.innerHTML = '<div class="loading">Načítám...</div>';
+      
+      const result = await callAPI('getMyRegistrations', {
+        participantId: currentParticipant.id
+      });
+      
+      if (result.success && result.registrations.length > 0) {
+        container.innerHTML = result.registrations.map(reg => `
+          <div class="registration-item">
+            <strong>${reg.courseName}</strong>
+            <span class="registration-status ${reg.attended === 'Ano' ? 'status-attended' : 'status-pending'}">
+              ${reg.attended === 'Ano' ? '✅ Zúčastněno' : '⏳ Čeká se'}
+            </span>
+            <div style="margin-top: 8px; color: #666; font-size: 0.9em;">
+              📅 ${reg.courseDate} | 🕐 ${reg.courseTime} | 📍 ${reg.coursePlace}
+            </div>
+          </div>
+        `).join('');
+      } else {
+        container.innerHTML = '<p>Zatím nemáte žádné přihlášky.</p>';
+      }
+    }
+
+    // Pomocné funkce
+    function showStep(stepId) {
+      document.querySelectorAll('.step').forEach(step => step.classList.remove('active'));
+      document.getElementById(stepId).classList.add('active');
+    }
+
+    function showMessage(elementId, message, type) {
+      const el = document.getElementById(elementId);
+      el.textContent = message;
+      el.className = 'message ' + type;
+    }
+
+    function goBackToLogin() {
+      showStep('loginStep');
+      document.getElementById('verificationCode').value = '';
+    }
+
+    function logout() {
+      if (confirm('Opravdu se chcete odhlásit?')) {
+        currentParticipant = null;
+        currentEmail = null;
+        document.getElementById('participantId').value = '';
+        document.getElementById('email').value = '';
+        document.getElementById('verificationCode').value = '';
+        document.getElementById('welcomeMessage').textContent = '';
+        showStep('loginStep');
+      }
+    }
+  </script>
+</body>
+</html>
