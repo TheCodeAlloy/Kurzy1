@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Check-in systém</title>
+  <!-- QR Scanner knihovna -->
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+    }
+
+    .card {
+      background: white;
+      padding: 30px;
+      border-radius: 15px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+      margin-bottom: 20px;
+    }
+
+    h1 {
+      color: #667eea;
+      margin-bottom: 10px;
+      text-align: center;
+    }
+
+    .subtitle {
+      text-align: center;
+      color: #666;
+      margin-bottom: 30px;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 15px;
+      margin-bottom: 20px;
+    }
+
+    .stat-card {
+      background: #f9f9f9;
+      padding: 20px;
+      border-radius: 10px;
+      text-align: center;
+      border-left: 4px solid #667eea;
+    }
+
+    .stat-number {
+      font-size: 2em;
+      font-weight: bold;
+      color: #667eea;
+    }
+
+    .stat-label {
+      color: #666;
+      margin-top: 5px;
+      font-size: 0.9em;
+    }
+
+    .check-icon {
+      font-size: 4em;
+      text-align: center;
+      margin-bottom: 15px;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    .form-group label {
+      display: block;
+      margin-bottom: 8px;
+      color: #333;
+      font-weight: 600;
+    }
+
+    .form-group input {
+      width: 100%;
+      padding: 12px 15px;
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      font-size: 1.2em;
+      text-align: center;
+      transition: all 0.3s;
+    }
+
+    .form-group input:focus {
+      outline: none;
+      border-color: #667eea;
+      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+
+    .btn {
+      width: 100%;
+      padding: 15px;
+      border: none;
+      border-radius: 8px;
+      font-size: 1.1em;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+      margin-bottom: 10px;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+    }
+
+    .btn-scan {
+      background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+      color: white;
+    }
+
+    .btn-scan:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 5px 15px rgba(17, 153, 142, 0.4);
+    }
+
+    .btn-stop {
+      background: linear-gradient(135deg, #eb3349 0%, #f45c43 100%);
+      color: white;
+    }
+
+    .btn-stop:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 5px 15px rgba(235, 51, 73, 0.4);
+    }
+
+    #qr-reader {
+      width: 100%;
+      border: 3px solid #667eea;
+      border-radius: 8px;
+      overflow: hidden;
+      margin: 20px 0;
+      display: none;
+    }
+
+    .message {
+      margin-top: 20px;
+      padding: 15px;
+      border-radius: 8px;
+      display: none;
+    }
+
+    .message.success {
+      background: #d4edda;
+      color: #155724;
+      border: 2px solid #c3e6cb;
+      display: block;
+    }
+
+    .message.error {
+      background: #f8d7da;
+      color: #721c24;
+      border: 2px solid #f5c6cb;
+      display: block;
+    }
+
+    .message.info {
+      background: #d1ecf1;
+      color: #0c5460;
+      border: 2px solid #bee5eb;
+      display: block;
+    }
+
+    .participant-info {
+      background: #f9f9f9;
+      padding: 20px;
+      border-radius: 8px;
+      margin-top: 20px;
+      border-left: 4px solid #667eea;
+    }
+
+    .participant-info h3 {
+      color: #667eea;
+      margin-bottom: 10px;
+    }
+
+    .participant-info p {
+      margin: 8px 0;
+      color: #333;
+    }
+
+    .participant-info strong {
+      color: #667eea;
+    }
+
+    @media (max-width: 768px) {
+      body {
+        padding: 10px;
+      }
+
+      .card {
+        padding: 20px;
+      }
+
+      h1 {
+        font-size: 1.5em;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="card">
+      <h1>📋 Check-in systém</h1>
+      <p class="subtitle">Registrace účasti na kurzech</p>
+
+      <!-- Statistiky -->
+      <div class="stats">
+        <div class="stat-card">
+          <div class="stat-number" id="totalCheckins">0</div>
+          <div class="stat-label">Celkem</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-number" id="todayCheckins">0</div>
+          <div class="stat-label">Dnes</div>
+        </div>
+      </div>
+
+      <!-- Tlačítko pro skenování QR kódu -->
+      <button id="scanBtn" class="btn btn-scan" onclick="startScanning()">
+        📷 Naskenovat QR kód
+      </button>
+      <button id="stopBtn" class="btn btn-stop" onclick="stopScanning()" style="display:none;">
+        ⏹️ Zastavit skenování
+      </button>
+
+      <!-- QR Scanner -->
+      <div id="qr-reader"></div>
+
+      <!-- Formulář pro manuální zadání -->
+      <form id="checkinForm">
+        <div class="form-group">
+          <label for="registrationId">Nebo zadejte ID ručně:</label>
+          <input 
+            type="text" 
+            id="registrationId" 
+            placeholder="např. P1738012345678"
+            autofocus>
+        </div>
+
+        <button type="submit" class="btn btn-primary">
+          ✓ Potvrdit check-in
+        </button>
+      </form>
+
+      <!-- Zprávy -->
+      <div id="message" class="message"></div>
+
+      <!-- Informace o účastníkovi -->
+      <div id="participantInfo" style="display:none;"></div>
+    </div>
+
+    <!-- Nápověda -->
+    <div class="card">
+      <h3>ℹ️ Návod k použití</h3>
+      <ol style="line-height: 2; color: #666;">
+        <li><strong>Způsob 1:</strong> Klikněte na "Naskenovat QR kód" a naskenujte QR kód účastníka kamerou</li>
+        <li><strong>Způsob 2:</strong> Zadejte ID přihlášky manuálně do pole a klikněte "Potvrdit check-in"</li>
+        <li>Systém automaticky zaznamená účast do Google Sheets</li>
+        <li>Účastník může pokračovat na kurz</li>
+      </ol>
+    </div>
+
+  </div>
+
+  <script>
+    // ⚙️ KONFIGURACE - ZMĚŇTE NA VAŠI APPS SCRIPT URL
+    const API_URL = 'https://script.google.com/macros/s/AKfycbzqcrHf-BnWBBwlitO041mMosOTHj5oF_0wJCy2xfzSzDRrOYlHJJOJL-h27nVKTotxNQ/exec';
+
+    let checkinCount = 0;
+    let todayCount = 0;
+    let html5QrcodeScanner = null;
+
+    // Formulář submit
+    document.getElementById('checkinForm').addEventListener('submit', function(e) {
+      e.preventDefault();
+      handleCheckIn();
+    });
+
+    // Funkce pro volání API
+    async function callAPI(action, data) {
+      try {
+        const response = await fetch(API_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            action: action,
+            ...data
+          })
+        });
+        
+        if (!response.ok) {
+          throw new Error('Network response was not ok');
+        }
+        
+        return await response.json();
+      } catch (error) {
+        console.error('API Error:', error);
+        return {
+          success: false,
+          message: 'Chyba připojení k serveru: ' + error.message
+        };
+      }
+    }
+
+    // Funkce pro spuštění skenování
+    function startScanning() {
+      document.getElementById('qr-reader').style.display = 'block';
+      document.getElementById('scanBtn').style.display = 'none';
+      document.getElementById('stopBtn').style.display = 'block';
+
+      html5QrcodeScanner = new Html5Qrcode("qr-reader");
+      
+      html5QrcodeScanner.start(
+        { facingMode: "environment" }, // Zadní kamera
+        {
+          fps: 10,
+          qrbox: { width: 250, height: 250 }
+        },
+        onScanSuccess,
+        onScanError
+      ).catch(err => {
+        showMessage('Chyba kamery: ' + err, 'error');
+        stopScanning();
+      });
+    }
+
+    // Funkce pro zastavení skenování
+    function stopScanning() {
+      if (html5QrcodeScanner) {
+        html5QrcodeScanner.stop().then(() => {
+          html5QrcodeScanner.clear();
+          document.getElementById('qr-reader').style.display = 'none';
+          document.getElementById('scanBtn').style.display = 'block';
+          document.getElementById('stopBtn').style.display = 'none';
+        }).catch(err => {
+          console.error('Chyba při zastavení: ', err);
+        });
+      }
+    }
+
+    // Callback při úspěšném skenování
+    function onScanSuccess(decodedText, decodedResult) {
+      console.log('QR kód naskenován:', decodedText);
+      
+      // Zastavit skenování
+      stopScanning();
+      
+      // Nastavit ID do inputu
+      document.getElementById('registrationId').value = decodedText;
+      
+      // Automaticky zavolat check-in
+      handleCheckIn();
+    }
+
+    // Callback při chybě skenování (nepoužívá se)
+    function onScanError(errorMessage) {
+      // Ignorovat běžné chyby při skenování
+    }
+
+    // Hlavní funkce pro check-in
+    async function handleCheckIn() {
+      const registrationId = document.getElementById('registrationId').value.trim();
+      
+      if (!registrationId) {
+        showMessage('Zadejte ID přihlášky', 'error');
+        return;
+      }
+
+      // Disable tlačítko
+      const submitBtn = document.querySelector('#checkinForm button[type="submit"]');
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Zpracovávám...';
+
+      showMessage('Kontroluji přihlášku...', 'info');
+
+      // Volání API
+      const response = await callAPI('checkInParticipant', {
+        registrationId: registrationId
+      });
+
+      onCheckInSuccess(response);
+    }
+
+    function onCheckInSuccess(response) {
+      console.log('onCheckInSuccess zavoláno');
+      console.log('Response:', response);
+      
+      const submitBtn = document.querySelector('#checkinForm button[type="submit"]');
+      submitBtn.disabled = false;
+      submitBtn.textContent = '✓ Potvrdit check-in';
+
+      // Kontrola, zda response existuje
+      if (!response) {
+        console.error('ERROR: Response is null or undefined');
+        showMessage('❌ Chyba: Server nevrátil žádnou odpověď. Zkontrolujte internetové připojení.', 'error');
+        document.getElementById('participantInfo').style.display = 'none';
+        playErrorSound();
+        return;
+      }
+
+      // Kontrola, zda response má success property
+      if (response.success === undefined) {
+        console.error('ERROR: Response nemá property success');
+        console.error('Response:', JSON.stringify(response));
+        showMessage('❌ Chyba: Neplatná odpověď ze serveru. Zkuste to znovu.', 'error');
+        document.getElementById('participantInfo').style.display = 'none';
+        playErrorSound();
+        return;
+      }
+
+      if (response.success) {
+        console.log('Check-in úspěšný!');
+        
+        // Kontrola, zda máme participant a course data
+        if (!response.participant) {
+          console.error('ERROR: Response nemá participant data');
+          showMessage('⚠️ ' + (response.message || 'Check-in zapsán, ale chybí data účastníka'), 'error');
+          document.getElementById('participantInfo').style.display = 'none';
+          playErrorSound();
+          return;
+        }
+        
+        if (!response.course) {
+          console.error('ERROR: Response nemá course data');
+          showMessage('⚠️ ' + (response.message || 'Check-in zapsán, ale chybí data kurzu'), 'error');
+          document.getElementById('participantInfo').style.display = 'none';
+          playErrorSound();
+          return;
+        }
+        
+        // Kontrola, zda už byl check-in proveden dříve
+        var alreadyCheckedIn = response.message.indexOf('již byl proveden') > -1 || 
+                               response.message.indexOf('already') > -1;
+        
+        if (alreadyCheckedIn) {
+          // Již byl check-in - nezapočítávat do statistik
+          showMessage('ℹ️ ' + response.message, 'info');
+        } else {
+          // Nový check-in
+          showMessage('✅ Check-in úspěšný! Účast byla zapsána.', 'success');
+          
+          // Aktualizace statistik pouze pro NOVÝ check-in
+          checkinCount++;
+          todayCount++;
+          updateStats();
+          
+          // Přehrát zvuk (úspěch)
+          playSuccessSound();
+        }
+        
+        // Zobrazení informací o účastníkovi (vždy)
+        displayParticipantInfo(response.participant, response.course);
+
+        // Vymazání formuláře
+        document.getElementById('registrationId').value = '';
+        document.getElementById('registrationId').focus();
+
+        // Skrytí info po 10 sekundách
+        setTimeout(() => {
+          document.getElementById('participantInfo').style.display = 'none';
+          document.getElementById('message').style.display = 'none';
+        }, 10000);
+
+      } else {
+        console.log('Check-in selhal:', response.message);
+        showMessage('❌ ' + (response.message || 'Neznámá chyba'), 'error');
+        document.getElementById('participantInfo').style.display = 'none';
+        playErrorSound();
+      }
+    }
+
+    function displayParticipantInfo(participant, course) {
+      const infoDiv = document.getElementById('participantInfo');
+      
+      infoDiv.innerHTML = `
+        <div class="check-icon">✅</div>
+        <h3>Účastník zaregistrován</h3>
+        <p><strong>Jméno:</strong> ${participant.jmeno} ${participant.prijmeni}</p>
+        <p><strong>Email:</strong> ${participant.email}</p>
+        <p><strong>ID:</strong> ${participant.id}</p>
+        <hr style="margin: 15px 0; border: none; border-top: 1px solid #ddd;">
+        <p><strong>Kurz:</strong> ${course.nazev}</p>
+        <p><strong>Datum:</strong> ${course.datum}</p>
+        <p><strong>Místo:</strong> ${course.misto}</p>
+      `;
+      
+      infoDiv.style.display = 'block';
+      infoDiv.className = 'participant-info';
+    }
+
+    function showMessage(message, type) {
+      const messageEl = document.getElementById('message');
+      messageEl.textContent = message;
+      messageEl.className = 'message ' + type;
+      messageEl.style.display = 'block';
+    }
+
+    function updateStats() {
+      document.getElementById('totalCheckins').textContent = checkinCount;
+      document.getElementById('todayCheckins').textContent = todayCount;
+    }
+
+    // Zvukové efekty (jednoduché beepy)
+    function playSuccessSound() {
+      try {
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+        
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+        
+        oscillator.frequency.value = 800;
+        oscillator.type = 'sine';
+        
+        gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.2);
+        
+        oscillator.start(audioContext.currentTime);
+        oscillator.stop(audioContext.currentTime + 0.2);
+      } catch (e) {
+        // Ignorovat chyby zvuku
+      }
+    }
+
+    function playErrorSound() {
+      try {
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+        
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+        
+        oscillator.frequency.value = 200;
+        oscillator.type = 'sawtooth';
+        
+        gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+        
+        oscillator.start(audioContext.currentTime);
+        oscillator.stop(audioContext.currentTime + 0.3);
+      } catch (e) {
+        // Ignorovat chyby zvuku
+      }
+    }
+
+    // Auto-focus na input při načtení
+    window.onload = function() {
+      document.getElementById('registrationId').focus();
+    };
+  </script>
+</body>
+</html>
