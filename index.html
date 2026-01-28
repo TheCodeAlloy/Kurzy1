@@ -506,8 +506,7 @@
 
     // Přihlášení na kurz
     async function registerForCourse(courseId) {
-      if (!confirm('Opravdu se chcete přihlásit na tento kurz?')) return;
-      
+          
       const result = await callAPI('registerForCourse', {
         participantId: currentParticipant.id,
         courseId: courseId
