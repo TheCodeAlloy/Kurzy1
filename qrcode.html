@@ -175,18 +175,19 @@
     }
 
     async function loadQRCode() {
-      try {
-        // Volání API pro získání info o přihlášce
-        const response = await fetch(API_URL, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            action: 'getRegistrationInfo',
-            registrationId: registrationId
-          })
-        });
+  try {
+    // Vytvoření URL-encoded parametrů
+    const params = new URLSearchParams();
+    params.append('action', 'getRegistrationInfo');
+    params.append('registrationId', registrationId);
+    
+    const response = await fetch(API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: params.toString()
+    });
 
         if (!response.ok) {
           throw new Error('Chyba při načítání dat');
