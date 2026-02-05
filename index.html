@@ -330,12 +330,66 @@
       color: #2196F3;
     }
 
+    /* Modal potvrzení odhlášení */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.5);
+      z-index: 9999;
+      animation: fadeIn 0.3s;
+    }
+
+    .modal-overlay.active {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal-box {
+      background: white;
+      padding: 30px;
+      border-radius: 15px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      max-width: 500px;
+      width: 90%;
+      animation: slideUp 0.3s;
+    }
+
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(30px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .modal-box h3 {
+      color: #eb3349;
+      margin-bottom: 15px;
+      font-size: 1.4em;
+    }
+
+    .modal-box p {
+      color: #666;
+      margin-bottom: 25px;
+      line-height: 1.6;
+    }
+
+    .modal-buttons {
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+    }
+    
     @media (max-width: 768px) {
       body { padding: 10px; }
       .container { padding: 0; }
       header h1 { font-size: 1.5em; }
       .course-header { flex-direction: column; }
       .course-info { grid-template-columns: 1fr; }
+      .modal-buttons { flex-direction: column; }
+      .modal-buttons .btn { margin-right: 0; width: 100%; }
     }
   </style>
 </head>
@@ -420,6 +474,19 @@
 
   </div>
 
+  <!-- Modal pro potvrzení odhlášení -->
+  <div id="unregisterModal" class="modal-overlay">
+    <div class="modal-box">
+      <h3>⚠️ Potvrzení odhlášení</h3>
+      <p>Opravdu se chcete odhlásit z kurzu <strong id="modalCourseName"></strong>?</p>
+      <p style="font-size: 0.9em; color: #999; margin-bottom: 15px;">Tuto akci nelze vrátit zpět. Pokud budete chtít kurz znovu, budete se muset přihlásit znovu.</p>
+      <div class="modal-buttons">
+        <button class="btn btn-secondary" onclick="closeUnregisterModal()">Zrušit</button>
+        <button id="confirmUnregisterBtn" class="btn btn-danger" onclick="confirmUnregister()">Ano, odhlásit se</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     // ⚙️ KONFIGURACE
     const API_URL = 'https://script.google.com/macros/s/AKfycbzqcrHf-BnWBBwlitO041mMosOTHj5oF_0wJCy2xfzSzDRrOYlHJJOJL-h27nVKTotxNQ/exec';
@@ -427,6 +494,7 @@
     let currentParticipant = null;
     let currentEmail = null;
     let myRegistrationsData = [];
+    let pendingUnregisterData = null; // Pro modal
 
     // API volání
     async function callAPI(action, data) {
@@ -583,7 +651,6 @@
 
     // Přihlášení na kurz - SE SPINNEREM
     async function registerForCourse(courseId, btnElement) {
-      // Disable tlačítko a zobrazit spinner
       btnElement.disabled = true;
       const originalText = btnElement.innerHTML;
       btnElement.innerHTML = '<span class="btn-spinner"></span>Přihlašuji...';
@@ -593,7 +660,6 @@
         courseId: courseId
       });
       
-      // Obnovit tlačítko
       btnElement.disabled = false;
       btnElement.innerHTML = originalText;
       
@@ -606,8 +672,43 @@
       }
     }
 
-    // Odhlášení z kurzu - SE SPINNEREM (BEZ CONFIRM)
-    async function unregisterFromCourse(registrationId, btnElement) {
+    // Odhlášení z kurzu - S HTML MODÁLEM
+    function unregisterFromCourse(registrationId, btnElement) {
+      // Najít název kurzu pro zobrazení v modalu
+      const regItem = myRegistrationsData.find(r => r.id === registrationId);
+      const courseName = regItem ? regItem.courseName : 'tento kurz';
+      
+      // Uložit data pro pozdější použití
+      pendingUnregisterData = {
+        registrationId: registrationId,
+        btnElement: btnElement
+      };
+      
+      // Zobrazit modal
+      showUnregisterModal(courseName);
+    }
+
+    // Zobrazit potvrzovací modal
+    function showUnregisterModal(courseName) {
+      document.getElementById('modalCourseName').textContent = courseName;
+      document.getElementById('unregisterModal').classList.add('active');
+    }
+
+    // Zavřít modal
+    function closeUnregisterModal() {
+      document.getElementById('unregisterModal').classList.remove('active');
+      pendingUnregisterData = null;
+    }
+
+    // Potvrdit odhlášení
+    async function confirmUnregister() {
+      if (!pendingUnregisterData) return;
+      
+      const { registrationId, btnElement } = pendingUnregisterData;
+      
+      // Zavřít modal
+      closeUnregisterModal();
+      
       // Disable tlačítko a zobrazit spinner
       btnElement.disabled = true;
       const originalText = btnElement.innerHTML;
@@ -659,7 +760,6 @@
           const today = new Date();
           today.setHours(0, 0, 0, 0);
           
-          // NEzobrazovat tlačítko pro "Ucastnil se" a "Odhlasen"
           if (reg.status === 'Prihlasen' && courseDate >= today) {
             unregisterButton = `
               <button class="btn btn-danger btn-small" onclick="unregisterFromCourse('${reg.id}', this)" style="margin-top: 10px;">
@@ -705,28 +805,25 @@
     }
 
     function logout(btnElement) {
-  // Disable tlačítko a zobrazit spinner
-  btnElement.disabled = true;
-  const originalText = btnElement.innerHTML;
-  btnElement.innerHTML = '<span class="btn-spinner"></span>Odhlašuji...';
-  
-  // Simulace prodlevy pro UX
-  setTimeout(() => {
-    currentParticipant = null;
-    currentEmail = null;
-    myRegistrationsData = [];
-    document.getElementById('participantId').value = '';
-    document.getElementById('email').value = '';
-    document.getElementById('verificationCode').value = '';
-    document.getElementById('welcomeMessage').textContent = '';
-    
-    // Obnovit tlačítko
-    btnElement.disabled = false;
-    btnElement.innerHTML = originalText;
-    
-    showStep('loginStep');
-  }, 800);
-}
+      btnElement.disabled = true;
+      const originalText = btnElement.innerHTML;
+      btnElement.innerHTML = '<span class="btn-spinner"></span>Odhlašuji...';
+      
+      setTimeout(() => {
+        currentParticipant = null;
+        currentEmail = null;
+        myRegistrationsData = [];
+        document.getElementById('participantId').value = '';
+        document.getElementById('email').value = '';
+        document.getElementById('verificationCode').value = '';
+        document.getElementById('welcomeMessage').textContent = '';
+        
+        btnElement.disabled = false;
+        btnElement.innerHTML = originalText;
+        
+        showStep('loginStep');
+      }, 800);
+    }
   </script>
 </body>
 </html>
