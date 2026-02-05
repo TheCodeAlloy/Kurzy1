@@ -397,7 +397,7 @@
       <div class="card">
         <div class="header-with-logout">
           <h2>Dostupné kurzy</h2>
-          <button class="btn btn-secondary btn-small" onclick="logout()">Odhlásit se</button>
+          <button class="btn btn-secondary btn-small" onclick="logout()">Odejít z EDU portálu</button>
         </div>
         
         <p>Vyberte kurz, na který se chcete přihlásit:</p>
@@ -704,18 +704,29 @@
       document.getElementById('verificationCode').value = '';
     }
 
-    function logout() {
-      if (confirm('Opravdu se chcete odhlásit?')) {
-        currentParticipant = null;
-        currentEmail = null;
-        myRegistrationsData = [];
-        document.getElementById('participantId').value = '';
-        document.getElementById('email').value = '';
-        document.getElementById('verificationCode').value = '';
-        document.getElementById('welcomeMessage').textContent = '';
-        showStep('loginStep');
-      }
-    }
+    function logout(btnElement) {
+  // Disable tlačítko a zobrazit spinner
+  btnElement.disabled = true;
+  const originalText = btnElement.innerHTML;
+  btnElement.innerHTML = '<span class="btn-spinner"></span>Odhlašuji...';
+  
+  // Simulace prodlevy pro UX
+  setTimeout(() => {
+    currentParticipant = null;
+    currentEmail = null;
+    myRegistrationsData = [];
+    document.getElementById('participantId').value = '';
+    document.getElementById('email').value = '';
+    document.getElementById('verificationCode').value = '';
+    document.getElementById('welcomeMessage').textContent = '';
+    
+    // Obnovit tlačítko
+    btnElement.disabled = false;
+    btnElement.innerHTML = originalText;
+    
+    showStep('loginStep');
+  }, 800);
+}
   </script>
 </body>
 </html>
