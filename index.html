@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Přihlašování na kurzy</title>
+  <title>EDU portál - registrace na kurzy</title>
   <style>
     * {
       margin: 0;
@@ -125,6 +125,16 @@
     .btn-secondary {
       background: #f5f5f5;
       color: #333;
+    }
+
+    .btn-danger {
+      background: linear-gradient(135deg, #eb3349 0%, #f45c43 100%);
+      color: white;
+    }
+
+    .btn-danger:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 5px 15px rgba(235, 51, 73, 0.4);
     }
 
     .btn-small {
@@ -254,14 +264,19 @@
       margin-left: 10px;
     }
 
-    .status-pending {
-      background: #fff3cd;
-      color: #856404;
+    .status-prihlasen {
+      background: #d1ecf1;
+      color: #0c5460;
     }
 
-    .status-attended {
+    .status-ucastnil {
       background: #d4edda;
       color: #155724;
+    }
+
+    .status-odhlasen {
+      background: #f8d7da;
+      color: #721c24;
     }
 
     .loading {
@@ -276,6 +291,24 @@
       justify-content: space-between;
       align-items: center;
       margin-bottom: 15px;
+    }
+
+    .already-registered {
+      background: #e7f3ff;
+      padding: 15px;
+      border-radius: 8px;
+      border-left: 4px solid #2196F3;
+      margin-top: 15px;
+    }
+
+    .already-registered p {
+      margin: 5px 0;
+      color: #666;
+      font-size: 0.95em;
+    }
+
+    .already-registered strong {
+      color: #2196F3;
     }
 
     @media (max-width: 768px) {
@@ -313,7 +346,7 @@
             <input type="email" id="email" required placeholder="vas@email.cz">
           </div>
           
-          <button type="submit" class="btn btn-primary">Odeslat ověřovací kód</button>
+          <button type="submit" class="btn btn-primary">Odeslat</button>
         </form>
         
         <div id="loginMessage" class="message"></div>
@@ -369,47 +402,46 @@
   </div>
 
   <script>
-    // ⚙️ KONFIGURACE - ZMĚŇTE NA VAŠI APPS SCRIPT URL
+    // ⚙️ KONFIGURACE
     const API_URL = 'https://script.google.com/macros/s/AKfycbzqcrHf-BnWBBwlitO041mMosOTHj5oF_0wJCy2xfzSzDRrOYlHJJOJL-h27nVKTotxNQ/exec';
 
     let currentParticipant = null;
     let currentEmail = null;
+    let myRegistrationsData = []; // Cache pro kontrolu přihlášení
 
     // API volání
     async function callAPI(action, data) {
-  try {
-    // Vytvoření URL-encoded parametrů
-    const params = new URLSearchParams();
-    params.append('action', action);
-    
-    // Přidání všech dat jako parametry
-    for (const key in data) {
-      if (data.hasOwnProperty(key)) {
-        params.append(key, data[key]);
+      try {
+        const params = new URLSearchParams();
+        params.append('action', action);
+        
+        for (const key in data) {
+          if (data.hasOwnProperty(key)) {
+            params.append(key, data[key]);
+          }
+        }
+        
+        const response = await fetch(API_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+          body: params.toString()
+        });
+        
+        if (!response.ok) {
+          throw new Error('Network response was not ok');
+        }
+        
+        return await response.json();
+      } catch (error) {
+        console.error('API Error:', error);
+        return {
+          success: false,
+          message: 'Chyba připojení k serveru: ' + error.message
+        };
       }
     }
-    
-    const response = await fetch(API_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: params.toString()
-    });
-    
-    if (!response.ok) {
-      throw new Error('Network response was not ok');
-    }
-    
-    return await response.json();
-  } catch (error) {
-    console.error('API Error:', error);
-    return {
-      success: false,
-      message: 'Chyba připojení k serveru: ' + error.message
-    };
-  }
-}
 
     // KROK 1: Přihlášení
     document.getElementById('loginForm').addEventListener('submit', async function(e) {
@@ -459,13 +491,18 @@
           'Vítejte, ' + result.participant.jmeno + ' ' + result.participant.prijmeni + '!';
         setTimeout(() => {
           showStep('coursesStep');
-          loadCourses();
-          loadMyRegistrations();
+          loadCoursesAndRegistrations();
         }, 1000);
       }
     });
 
-    // Načtení kurzů
+    // Načtení kurzů a přihlášek
+    async function loadCoursesAndRegistrations() {
+      await loadMyRegistrations(); // Načteme přihlášky PRVNÍ
+      await loadCourses(); // Pak kurzy (potřebuje data z přihlášek)
+    }
+
+    // Načtení kurzů s kontrolou přihlášení
     async function loadCourses() {
       const list = document.getElementById('coursesList');
       list.innerHTML = '<div class="loading">Načítám kurzy...</div>';
@@ -473,32 +510,56 @@
       const result = await callAPI('getCourses', {});
       
       if (result.success && result.courses.length > 0) {
-        list.innerHTML = result.courses.map(course => `
-          <div class="course-item">
-            <div class="course-header">
-              <div>
-                <div class="course-title">${course.nazev}</div>
-                <p style="color: #666; margin: 5px 0;">${course.popis || ''}</p>
+        list.innerHTML = result.courses.map(course => {
+          // Kontrola, zda už je uživatel přihlášen na tento kurz
+          const existingRegistration = myRegistrationsData.find(reg => 
+            reg.courseId === course.id && reg.status !== 'Odhlasen'
+          );
+          
+          let actionHTML = '';
+          
+          if (existingRegistration) {
+            // Už je přihlášen
+            actionHTML = `
+              <div class="already-registered">
+                <p><strong>✓ Na tento kurz jste se již registroval/a</strong></p>
+                <p style="font-size: 0.85em; margin-top: 8px;">Pokud se chcete z kurzu odhlásit, kontaktujte realizátory kurzu prostřednictvím emailu <strong>info@c1z.cz</strong></p>
               </div>
+            `;
+          } else {
+            // Není přihlášen - zobrazit tlačítko
+            actionHTML = `
+              <button class="btn btn-primary" onclick="registerForCourse('${course.id}')">
+                Přihlásit se
+              </button>
+            `;
+          }
+          
+          return `
+            <div class="course-item">
+              <div class="course-header">
+                <div>
+                  <div class="course-title">${course.nazev}</div>
+                  <p style="color: #666; margin: 5px 0;">${course.popis || ''}</p>
+                </div>
+              </div>
+              
+              <div class="course-info">
+                <div class="course-info-item">📅 <strong>${course.datum}</strong></div>
+                <div class="course-info-item">🕐 <strong>${course.hodiny}</strong></div>
+                <div class="course-info-item">📍 <strong>${course.misto}</strong></div>
+              </div>
+              
+              <div class="capacity-info">
+                <span class="capacity-badge ${course.volnaMista > 5 ? 'capacity-available' : 'capacity-limited'}">
+                  ${course.volnaMista} volných míst z ${course.kapacita}
+                </span>
+              </div>
+              
+              ${actionHTML}
             </div>
-            
-            <div class="course-info">
-              <div class="course-info-item">📅 <strong>${course.datum}</strong></div>
-              <div class="course-info-item">🕐 <strong>${course.hodiny}</strong></div>
-              <div class="course-info-item">📍 <strong>${course.misto}</strong></div>
-            </div>
-            
-            <div class="capacity-info">
-              <span class="capacity-badge ${course.volnaMista > 5 ? 'capacity-available' : 'capacity-limited'}">
-                ${course.volnaMista} volných míst z ${course.kapacita}
-              </span>
-            </div>
-            
-            <button class="btn btn-primary" onclick="registerForCourse('${course.id}')">
-              Přihlásit se
-            </button>
-          </div>
-        `).join('');
+          `;
+        }).join('');
       } else {
         list.innerHTML = '<p style="text-align:center;color:#666;">Momentálně nejsou dostupné žádné kurzy.</p>';
       }
@@ -506,7 +567,6 @@
 
     // Přihlášení na kurz
     async function registerForCourse(courseId) {
-          
       const result = await callAPI('registerForCourse', {
         participantId: currentParticipant.id,
         courseId: courseId
@@ -516,8 +576,26 @@
       
       if (result.success) {
         setTimeout(() => {
-          loadCourses();
-          loadMyRegistrations();
+          loadCoursesAndRegistrations();
+        }, 1500);
+      }
+    }
+
+    // Odhlášení z kurzu
+    async function unregisterFromCourse(registrationId) {
+      if (!confirm('Opravdu se chcete odhlásit z tohoto kurzu?')) {
+        return;
+      }
+      
+      const result = await callAPI('unregisterFromCourse', {
+        registrationId: registrationId
+      });
+      
+      showMessage('coursesMessage', result.message, result.success ? 'success' : 'error');
+      
+      if (result.success) {
+        setTimeout(() => {
+          loadCoursesAndRegistrations();
         }, 1500);
       }
     }
@@ -532,18 +610,49 @@
       });
       
       if (result.success && result.registrations.length > 0) {
-        container.innerHTML = result.registrations.map(reg => `
-          <div class="registration-item">
-            <strong>${reg.courseName}</strong>
-            <span class="registration-status ${reg.attended === 'Ano' ? 'status-attended' : 'status-pending'}">
-              ${reg.attended === 'Ano' ? '✅ Zúčastněno' : '⏳ Čeká se'}
-            </span>
-            <div style="margin-top: 8px; color: #666; font-size: 0.9em;">
-              📅 ${reg.courseDate} | 🕐 ${reg.courseTime} | 📍 ${reg.coursePlace}
+        myRegistrationsData = result.registrations; // Uložit do cache
+        
+        container.innerHTML = result.registrations.map(reg => {
+          // Určení CSS třídy podle stavu
+          let statusClass = '';
+          if (reg.status === 'Prihlasen') {
+            statusClass = 'status-prihlasen';
+          } else if (reg.status === 'Ucastnil se') {
+            statusClass = 'status-ucastnil';
+          } else if (reg.status === 'Odhlasen') {
+            statusClass = 'status-odhlasen';
+          }
+          
+          // Tlačítko odhlásit se - jen pro budoucí kurzy a stav "Prihlasen"
+          let unregisterButton = '';
+          const courseDate = new Date(reg.courseDateRaw);
+          courseDate.setHours(0, 0, 0, 0);
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          
+          if (reg.status === 'Prihlasen' && courseDate >= today) {
+            unregisterButton = `
+              <button class="btn btn-danger btn-small" onclick="unregisterFromCourse('${reg.id}')" style="margin-top: 10px;">
+                Odhlásit se z kurzu
+              </button>
+            `;
+          }
+          
+          return `
+            <div class="registration-item">
+              <strong>${reg.courseName}</strong>
+              <span class="registration-status ${statusClass}">
+                ${reg.statusDisplay}
+              </span>
+              <div style="margin-top: 8px; color: #666; font-size: 0.9em;">
+                📅 ${reg.courseDate} | 🕐 ${reg.courseTime} | 📍 ${reg.coursePlace}
+              </div>
+              ${unregisterButton}
             </div>
-          </div>
-        `).join('');
+          `;
+        }).join('');
       } else {
+        myRegistrationsData = [];
         container.innerHTML = '<p>Zatím nemáte žádné přihlášky.</p>';
       }
     }
@@ -569,6 +678,7 @@
       if (confirm('Opravdu se chcete odhlásit?')) {
         currentParticipant = null;
         currentEmail = null;
+        myRegistrationsData = [];
         document.getElementById('participantId').value = '';
         document.getElementById('email').value = '';
         document.getElementById('verificationCode').value = '';
