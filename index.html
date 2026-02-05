@@ -110,6 +110,7 @@
       transition: all 0.3s;
       margin-right: 10px;
       margin-bottom: 10px;
+      position: relative;
     }
 
     .btn-primary {
@@ -117,7 +118,7 @@
       color: white;
     }
 
-    .btn-primary:hover {
+    .btn-primary:hover:not(:disabled) {
       transform: translateY(-2px);
       box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
     }
@@ -132,7 +133,7 @@
       color: white;
     }
 
-    .btn-danger:hover {
+    .btn-danger:hover:not(:disabled) {
       transform: translateY(-2px);
       box-shadow: 0 5px 15px rgba(235, 51, 73, 0.4);
     }
@@ -143,8 +144,26 @@
     }
 
     .btn:disabled {
-      opacity: 0.5;
+      opacity: 0.7;
       cursor: not-allowed;
+      transform: none !important;
+    }
+
+    /* Spinner uvnitř tlačítka */
+    .btn-spinner {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: white;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin-right: 8px;
+      vertical-align: middle;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
     }
 
     .message {
@@ -407,7 +426,7 @@
 
     let currentParticipant = null;
     let currentEmail = null;
-    let myRegistrationsData = []; // Cache pro kontrolu přihlášení
+    let myRegistrationsData = [];
 
     // API volání
     async function callAPI(action, data) {
@@ -457,7 +476,7 @@
       const result = await callAPI('verifyParticipant', { participantId, email });
       
       btn.disabled = false;
-      btn.textContent = 'Odeslat ověřovací kód';
+      btn.textContent = 'Odeslat';
       
       showMessage('loginMessage', result.message, result.success ? 'success' : 'error');
       
@@ -498,8 +517,8 @@
 
     // Načtení kurzů a přihlášek
     async function loadCoursesAndRegistrations() {
-      await loadMyRegistrations(); // Načteme přihlášky PRVNÍ
-      await loadCourses(); // Pak kurzy (potřebuje data z přihlášek)
+      await loadMyRegistrations();
+      await loadCourses();
     }
 
     // Načtení kurzů s kontrolou přihlášení
@@ -511,7 +530,6 @@
       
       if (result.success && result.courses.length > 0) {
         list.innerHTML = result.courses.map(course => {
-          // Kontrola, zda už je uživatel přihlášen na tento kurz
           const existingRegistration = myRegistrationsData.find(reg => 
             reg.courseId === course.id && reg.status !== 'Odhlasen'
           );
@@ -519,7 +537,6 @@
           let actionHTML = '';
           
           if (existingRegistration) {
-            // Už je přihlášen
             actionHTML = `
               <div class="already-registered">
                 <p><strong>✓ Na tento kurz jste se již registroval/a</strong></p>
@@ -527,9 +544,8 @@
               </div>
             `;
           } else {
-            // Není přihlášen - zobrazit tlačítko
             actionHTML = `
-              <button class="btn btn-primary" onclick="registerForCourse('${course.id}')">
+              <button class="btn btn-primary" onclick="registerForCourse('${course.id}', this)">
                 Přihlásit se
               </button>
             `;
@@ -565,12 +581,21 @@
       }
     }
 
-    // Přihlášení na kurz
-    async function registerForCourse(courseId) {
+    // Přihlášení na kurz - SE SPINNEREM
+    async function registerForCourse(courseId, btnElement) {
+      // Disable tlačítko a zobrazit spinner
+      btnElement.disabled = true;
+      const originalText = btnElement.innerHTML;
+      btnElement.innerHTML = '<span class="btn-spinner"></span>Přihlašuji...';
+      
       const result = await callAPI('registerForCourse', {
         participantId: currentParticipant.id,
         courseId: courseId
       });
+      
+      // Obnovit tlačítko
+      btnElement.disabled = false;
+      btnElement.innerHTML = originalText;
       
       showMessage('coursesMessage', result.message, result.success ? 'success' : 'error');
       
@@ -581,15 +606,20 @@
       }
     }
 
-    // Odhlášení z kurzu
-    async function unregisterFromCourse(registrationId) {
-      if (!confirm('Opravdu se chcete odhlásit z tohoto kurzu?')) {
-        return;
-      }
+    // Odhlášení z kurzu - SE SPINNEREM (BEZ CONFIRM)
+    async function unregisterFromCourse(registrationId, btnElement) {
+      // Disable tlačítko a zobrazit spinner
+      btnElement.disabled = true;
+      const originalText = btnElement.innerHTML;
+      btnElement.innerHTML = '<span class="btn-spinner"></span>Odhlašuji...';
       
       const result = await callAPI('unregisterFromCourse', {
         registrationId: registrationId
       });
+      
+      // Obnovit tlačítko
+      btnElement.disabled = false;
+      btnElement.innerHTML = originalText;
       
       showMessage('coursesMessage', result.message, result.success ? 'success' : 'error');
       
@@ -610,10 +640,9 @@
       });
       
       if (result.success && result.registrations.length > 0) {
-        myRegistrationsData = result.registrations; // Uložit do cache
+        myRegistrationsData = result.registrations;
         
         container.innerHTML = result.registrations.map(reg => {
-          // Určení CSS třídy podle stavu
           let statusClass = '';
           if (reg.status === 'Prihlasen') {
             statusClass = 'status-prihlasen';
@@ -623,17 +652,18 @@
             statusClass = 'status-odhlasen';
           }
           
-          // Tlačítko odhlásit se - jen pro budoucí kurzy a stav "Prihlasen"
+          // Tlačítko odhlásit se - JEN pro "Prihlasen" a budoucí kurzy
           let unregisterButton = '';
           const courseDate = new Date(reg.courseDateRaw);
           courseDate.setHours(0, 0, 0, 0);
           const today = new Date();
           today.setHours(0, 0, 0, 0);
           
+          // NEzobrazovat tlačítko pro "Ucastnil se" a "Odhlasen"
           if (reg.status === 'Prihlasen' && courseDate >= today) {
             unregisterButton = `
-              <button class="btn btn-danger btn-small" onclick="unregisterFromCourse('${reg.id}')" style="margin-top: 10px;">
-                Odhlásit se z kurzu
+              <button class="btn btn-danger btn-small" onclick="unregisterFromCourse('${reg.id}', this)" style="margin-top: 10px;">
+                Odhlásit se
               </button>
             `;
           }
