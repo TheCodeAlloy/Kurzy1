@@ -3,10 +3,15 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="light only">
   <title>Váš QR kód pro check-in</title>
   <!-- QR Code generátor -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <style>
+    :root {
+      color-scheme: light only;
+    }
+
     * {
       margin: 0;
       padding: 0;
@@ -69,6 +74,11 @@
       align-items: center;
       margin: 30px 0;
       min-height: 300px;
+    }
+
+    #qrCode img, #qrCode canvas {
+      background: white !important;
+      filter: none !important;
     }
 
     .registration-id {
@@ -175,19 +185,18 @@
     }
 
     async function loadQRCode() {
-  try {
-    // Vytvoření URL-encoded parametrů
-    const params = new URLSearchParams();
-    params.append('action', 'getRegistrationInfo');
-    params.append('registrationId', registrationId);
-    
-    const response = await fetch(API_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: params.toString()
-    });
+      try {
+        const params = new URLSearchParams();
+        params.append('action', 'getRegistrationInfo');
+        params.append('registrationId', registrationId);
+        
+        const response = await fetch(API_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+          body: params.toString()
+        });
 
         if (!response.ok) {
           throw new Error('Chyba při načítání dat');
@@ -207,13 +216,9 @@
     }
 
     function displayQRCode(data) {
-      // Skrýt loading
       document.getElementById('loading').style.display = 'none';
-      
-      // Zobrazit obsah
       document.getElementById('content').style.display = 'block';
 
-      // Vygenerovat QR kód
       new QRCode(document.getElementById("qrCode"), {
         text: data.registrationId,
         width: 300,
@@ -223,10 +228,8 @@
         correctLevel: QRCode.CorrectLevel.H
       });
 
-      // Zobrazit ID
       document.getElementById('registrationIdDisplay').textContent = data.registrationId;
 
-      // Zobrazit info
       document.getElementById('infoSection').innerHTML = `
         <p><strong>Jméno:</strong> ${data.participant.jmeno} ${data.participant.prijmeni}</p>
         <p><strong>Kurz:</strong> ${data.course.nazev}</p>
